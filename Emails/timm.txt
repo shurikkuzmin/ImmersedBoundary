@@ -1,0 +1,15 @@
+There are basically two different ways to do IBM for (pseudo-)rigid boundaries:
+1) Allow the Lagrangian nodes to move along with the flow and use penalty parameters to make the structure as rigid as possible. Problem: since this is an explicit algorithm, it becomes quickly unstable for large penalty parameters, but for small parameters the deformation may be too large.
+2) Do not allow the Lagrangian nodes to move and compute the force on the fluid in such a way that the nodes would not move (also called "direct forcing" because the force is directly computed without using any penalty parameters). This usually requires an implicit algorithm and is much more difficult. Moreover, one usually observes slip at the surfaces.
+Interestingly, there does not seem to be a really nice review article about that. I have attached a few articles about implicit IBM with LBM (you should start with the first: 2009_Wu_implicit.pdf). Please let me know if you need anything more.
+
+
+If you can provide me with the simplest code to start with - that would be perfect.
+
+I do not really have a code for rigid boundaries, but you may want to check my code on the Edmonton Workshop web page (http://lbmworkshop.com/wp-content/uploads/2011/08/IBLBM_2D_cylinder_street.cc). It is a penalty-parameter-based approach.
+
+Thank you for references - my the only concern how do I include rotation and propagation of a moving solid particle. Please correct me if I'm wrong but the code in the workshop was for fixed solid particle.
+
+I see what you mean. This can be tricky as well. One usually integrates the surface stresses in order to obtain total force and torque. The particle is then advected as a rigid particle (using a quaternion formulation for the rotation, for example). This also requires time integration schemes which are robust (forward Euler is often too unstable). There are not many references, and I actually think that there are no proper publications about rigid IBM for moving particles. I have attached something.
+
+

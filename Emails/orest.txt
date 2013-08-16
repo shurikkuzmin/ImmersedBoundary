@@ -1,0 +1,14 @@
+Hey Alex,
+
+I'm in New York. The internet wasn't good yesterday and I couldn't join. I'll be back in touch with you about SM next week.
+
+Orest, I have a small request to you. Could you provide me with the best LBM papers on IBM for solid particles motion. BTW, is it completely different from the IBM implementation for soft particles with springs which Timm presented in the workshop? Which one is better?
+This is an interesting topic, but I'll try to answer quickly. The methods are very different. Timm's assumes a density ratio of 1. And it's not straightforward to change the density ratio. Jos's paper with Sundaresan (about particle waves in sedimentation) gives references for the method I know. The motion integration considers the presence of internal fluid (see appendix on Jos's paper, it's on his website: http://homepages.abdn.ac.uk/jderksen/pbl/jfm587p303.pdf). 
+ 
+
+If you can provide me with the simplest code to start with - that would be perfect.
+I don't have a simple code - only Jos's (I think it has too many tuning parameters in the feedback method that applies the forcing for IB). I suggest Inamuro's work as a reasonable starting point. The attached paper also points out an important topic (in my opinion) - when does the presence of internal fluid matter? The answer, which is at high Re, makes sense.
+
+Another useful reference about the IBM in LBM is Feng and Michaelides (attached). Not many people do LBM+IB.
+
+Also, some of the good work on the immersed boundary method is for other flow solvers (not LB). See e.g. the Peskin reference in Jos's paper.
