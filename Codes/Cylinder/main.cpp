@@ -7,8 +7,8 @@
 int NX,NY,NUM;
 
 //Time steps
-int N=1000;
-int NOUTPUT=100;
+int N=10000;
+int NOUTPUT=1000;
 int NSIGNAL=100;
 
 //Other constants
@@ -73,7 +73,7 @@ double center_y = 30.0;
 double radius   = 10.0;
 
 //Global stiffness
-double stiffness = 0.003;
+double stiffness = 0.03;
 
 void writedensity(std::string const & fname)
 {
@@ -302,17 +302,7 @@ void spread_particle_forces()
 	int ybottom = floor(points[n].y);
 	int xtop    = ceil(points[n].x); 
 	int ytop    = ceil(points[n].y);
-	std::cout << "X: " << points[n].x << " " << xbottom << " " << xtop << "\n";
-	std::cout << "Y: " << points[n].y << " " << ybottom << " " << ytop << "\n";
-	if(xbottom == xtop)
-	{
-		std::cout << "Zhopa  xbottom=xtop" << n << "\n"; 
-	}
-	if(ybottom == ytop)
-	{
-		std::cout << "Zhopa  ybottom=ytop" << n << "\n"; 
-	}
- 
+	
     for(int iX = xbottom; iX <= xtop; iX++) 
     {
     	for(int iY = ybottom; iY <= ytop; iY++) 
@@ -320,19 +310,19 @@ void spread_particle_forces()
 
         	// Compute distance between object node and fluid lattice node.
 
- 	       	double dist_x = abs(points[n].x-iX);
-    		double dist_y = abs(points[n].y-iY);
+ 	       	double dist_x = fabs(points[n].x-iX);
+    		double dist_y = fabs(points[n].y-iY);
 
         	// Compute interpolation weights for x- and y-direction based on the distance.
 
         	double weight_x = 1.0 - dist_x;
         	double weight_y = 1.0 - dist_y;
-        	
-        	int counter = iX * NX + iY;
+        	int counter = iY * NX + iX;
 
         	// Compute lattice force.
 			fx[counter] += points[n].force_x * weight_x * weight_y;
-			fy[counter] += points[n].force_y * weight_x * weight_y; 
+			fy[counter] += points[n].force_y * weight_x * weight_y;
+
       }
     }
   }
@@ -363,13 +353,13 @@ void interpolate_particle_velocities()
 
         // Compute distance between object node and fluid lattice node.
 
-        double dist_x = abs(points[n].x - iX);
-        double dist_y = abs(points[n].y - iY);
+        double dist_x = fabs(points[n].x - iX);
+        double dist_y = fabs(points[n].y - iY);
 
         // Compute interpolation weights for x- and y-direction based on the distance.
 
-        double weight_x = 1 - dist_x;
-        double weight_y = 1 - dist_y;
+        double weight_x = 1.0 - dist_x;
+        double weight_y = 1.0 - dist_y;
 
         // Compute node velocities.
 		int counter = iY * NX + iX;
@@ -550,7 +540,6 @@ int main(int argc, char* argv[])
 
 	for(int counter=0;counter<=N;counter++)
 	{
-		std::cout << "Counter=" << counter << "\n";
 		compute_particle_forces();
 		spread_particle_forces();
         collide_bulk();
