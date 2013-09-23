@@ -7,8 +7,8 @@
 int NX,NY,NUM;
 
 //Time steps
-int N=10000;
-int NOUTPUT=1000;
+int N=100000;
+int NOUTPUT=10000;
 int NSIGNAL=100;
 
 //Other constants
@@ -16,11 +16,11 @@ const int NPOP=9;
 
 const double rho_wall=0.5;
 
-double force_x=0.000006;
+double force_x=2.6439288783131736e-06;
 double force_y=0.0;
 
 //BGK relaxation parameter
-double omega=1.0; // /0.525;
+double omega=1.0/1.1;
 
 
 //Fields and populations
@@ -68,12 +68,12 @@ struct node_struct {
 //IB particle values
 int NUMIB;
 node_struct* points;
-double center_x = 30.0;
-double center_y = 30.0;
-double radius   = 10.0;
+double radius   = 30.0;
+double center_x = 120.0;
+double center_y = 120.0;
 
 //Global stiffness
-double stiffness = 0.03;
+double stiffness = 0.2;
 
 void writedensity(std::string const & fname)
 {
@@ -190,8 +190,8 @@ void writevtk(std::string const & fname)
 
 void init_hydro()
 {
-    NY=62;
-    NX=220;
+    NY=248;
+    NX=1321;
     NUM=NX*NY;
     rho=new double[NUM];
     ux=new double[NUM];
@@ -202,7 +202,12 @@ void init_hydro()
  	//Initialization of density
     for(int counter=0;counter<NUM;counter++)
     {
-		ux[counter]=0.0;
+		int iY = counter / NX;
+		if (iY == 0 || iY == NY - 1)
+			ux[counter]=0.0;
+		else
+			ux[counter]=0.4*(double(iY)-0.5)/double(NY-2)*(1.0-double(iY-0.5)/double(NY-2));
+		
 		uy[counter]=0.0;
 		fx[counter]=0.0;
 		fy[counter]=0.0;
@@ -220,7 +225,7 @@ void init_hydro()
 void init_immersed()
 {
 	//Number of immersed boundary points. We take it as perimeter with 
-	NUMIB = 80;
+	NUMIB = 240;
 	points = new node_struct[NUMIB];	
 
     for(int n = 0; n < NUMIB; ++n) {
@@ -519,8 +524,8 @@ void calculate_overall_force()
   
   aver_deformation = aver_deformation/NUMIB;
   
-  std::cout << "Drag force: " << force_tot_x << "\n"; 
-  std::cout << "Lift force: " << force_tot_y << "\n"; 
+  std::cout << "Drag force (summation): " << force_tot_x/(0.04/9.0*30.0) << "\n"; 
+  std::cout << "Lift force (summation): " << force_tot_y/(0.04/9.0*30.0) << "\n"; 
   std::cout << "Vel center X: " << vel_center_x << "\n";
   std::cout << "Vel center Y: " << vel_center_y << "\n";
   std::cout << "Average deformation: " << aver_deformation << "\n";
