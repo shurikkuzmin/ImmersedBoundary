@@ -7,8 +7,8 @@
 int NX,NY,NUM;
 
 //Time steps
-int N=100000;
-int NOUTPUT=10000;
+int N=200000;
+int NOUTPUT=2000;
 int NSIGNAL=100;
 
 //Other constants
@@ -73,7 +73,7 @@ double center_x = 120.0;
 double center_y = 120.0;
 
 //Global stiffness
-double stiffness = 0.2;
+double stiffness=0.1;
 
 void writedensity(std::string const & fname)
 {
@@ -503,33 +503,51 @@ void stream()
 	
 }
 
-void calculate_overall_force()
+void calculate_overall_force(std::string filename)
 {
+	std::ofstream fout(filename.c_str(),std::ios_base::app);
 
-  double force_tot_x = 0.0;
-  double force_tot_y = 0.0;
-  double vel_center_x = 0.0;
-  double vel_center_y = 0.0;
-  double aver_deformation = 0.0;
+    double force_tot_x = 0.0;
+    double force_tot_y = 0.0;
+    double vel_center_x = 0.0;
+    double vel_center_y = 0.0;
+    double aver_deformation = 0.0;
+    double len = 2.0*M_PI*radius/double(NUMIB);
+    double represent_vel = ux[NY/2*NX+3*NX/4];
+    double re = 2.0/3.0*represent_vel*2.0*radius/((1.0/omega-0.5)/3.0);
+    std::cout << "Len: " << len << std::endl;
+    std::cout << "Re: " << re << std::endl;
+    std::cout << "Represent vel: " << represent_vel << std::endl;
+  
 
-  for(int n = 0; n < NUMIB; n++) 
-  {
-    force_tot_x  += points[n].force_x;
-    force_tot_y  += points[n].force_y;
-    vel_center_x += points[n].vel_x;
-    vel_center_y += points[n].vel_y;
-    aver_deformation += sqrt((points[n].x-points[n].x_ref)*(points[n].x-points[n].x_ref)+
-    						 (points[n].y-points[n].y_ref)*(points[n].y-points[n].y_ref));
-  }
-  
-  aver_deformation = aver_deformation/NUMIB;
-  
-  std::cout << "Drag force (summation): " << force_tot_x/(0.04/9.0*30.0) << "\n"; 
-  std::cout << "Lift force (summation): " << force_tot_y/(0.04/9.0*30.0) << "\n"; 
-  std::cout << "Vel center X: " << vel_center_x << "\n";
-  std::cout << "Vel center Y: " << vel_center_y << "\n";
-  std::cout << "Average deformation: " << aver_deformation << "\n";
-  std::cout << "Average scaled force: " << aver_deformation*NUMIB << "\n";
+    for(int n = 0; n < NUMIB; n++) 
+    { 
+        force_tot_x  += points[n].force_x;
+        force_tot_y  += points[n].force_y;
+        vel_center_x += points[n].vel_x;
+        vel_center_y += points[n].vel_y;
+        aver_deformation += sqrt((points[n].x-points[n].x_ref)*(points[n].x-points[n].x_ref)+
+                            (points[n].y-points[n].y_ref)*(points[n].y-points[n].y_ref));
+    }
+    force_tot_x = force_tot_x * len;
+    force_tot_y = force_tot_y * len;
+    aver_deformation = aver_deformation/NUMIB;
+    
+    double drag_theor = -force_tot_x/(0.04/9.0*radius);
+    double lift_theor = -force_tot_y/(0.04/9.0*radius);
+    double drag_sim = -force_tot_x/(4.0/9.0*represent_vel*represent_vel*radius);
+    double lift_sim = -force_tot_y/(4.0/9.0*represent_vel*represent_vel*radius);
+    
+    std::cout << "Drag force (theoretical): " << drag_theor  << "\n"; 
+    std::cout << "Lift force (theoretical): " << lift_theor << "\n";
+    std::cout << "Drag force (simulation): " << drag_sim  << "\n"; 
+    std::cout << "Lift force (simulation): " << lift_sim << "\n";
+    fout << std::fixed;
+    fout << drag_theor << " " << lift_theor << " " << drag_sim << " " << lift_sim << std::endl;   
+   
+    std::cout << "Vel center X: " << vel_center_x << "\n";
+    std::cout << "Vel center Y: " << vel_center_y << "\n";
+    std::cout << "Average deformation: " << aver_deformation << "\n";
 }
 
 int main(int argc, char* argv[])
@@ -553,12 +571,14 @@ int main(int argc, char* argv[])
 	    if (counter%NSIGNAL==0)
 	    {
 	    	std::cout<<"Counter="<<counter<<"\n";
+	    	std::stringstream filewriteoverall;
+	    	filewriteoverall << "drags.dat";
+			calculate_overall_force(filewriteoverall.str());	    	
     	}
     	
 		//Writing files
 		if (counter%NOUTPUT==0)
 		{
-			calculate_overall_force();
             std::cout<<"Output "<<counter<<"\n";
 			std::stringstream filewritedensity;
   			std::stringstream filewritevelocityx;
