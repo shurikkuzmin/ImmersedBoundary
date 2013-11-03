@@ -69,9 +69,9 @@ struct node_struct {
 //IB particle values
 int NUMIB;
 node_struct* points;
-double radius   = 30.0;
-double center_x = 120.0;
-double center_y = 120.0;
+double radius   = 20.0;
+double center_x = 800.0;
+double center_y = 200.0;
 
 //Global stiffness
 double stiffness=0.05;
@@ -191,8 +191,8 @@ void writevtk(std::string const & fname)
 
 void init_hydro()
 {
-    NY=248;
-    NX=1321;
+    NY=402;
+    NX=2001;
     NUM=NX*NY;
     rho=new double[NUM];
     ux=new double[NUM];
@@ -204,29 +204,18 @@ void init_hydro()
     for(int counter=0;counter<NUM;counter++)
     {
 		int iY = counter / NX;
-		if (iY == 0 || iY == NY - 1)
-			ux[counter]=0.0;
-		else
-			ux[counter]=4.0*vel_center*(double(iY)-0.5)/double(NY-2)*(1.0-double(iY-0.5)/double(NY-2));
-		
+		ux[counter]=vel_center;
 		uy[counter]=0.0;
 		fx[counter]=0.0;
 		fy[counter]=0.0;
 		rho[counter]=1.0;
 	}
-    //Initialization of density walls
-    for(int iX=0;iX<NX;iX++)
-    {
-        rho[iX]=rho_wall;
-        rho[NX*(NY-1)+iX]=rho_wall;
-    }
-    
 }
 
 void init_immersed()
 {
 	//Number of immersed boundary points. We take it as perimeter with 
-	NUMIB = 240;
+	NUMIB = 160;
 	points = new node_struct[NUMIB];	
 
     for(int n = 0; n < NUMIB; ++n) {
@@ -405,7 +394,7 @@ void collide_bulk()
 		int iX=counter%NX;
 		int iY=counter/NX;
 		
-		if ( (iY==0) || (iY==NY-1) || (iX==0) || (iX==NX-1) )
+		if ( (iX==0) || (iX==NX-1) )
             continue;
 		double dense_temp=0.0;
 		double ux_temp=0.0;
@@ -459,33 +448,20 @@ void collide_bulk()
 
 void update_bounce_back()
 {
-	//Perform bounce back on walls
-    for(int iX=0;iX<NX;iX++)
-    {
-        int iX_top=(iX+1+NX)%NX;
-        int iX_bottom=(iX-1+NX)%NX;
-        
-        f2[iX*NPOP+2]=f2[(NX+iX)*NPOP+4];
-        f2[iX*NPOP+5]=f2[(NX+iX_top)*NPOP+7];
-        f2[iX*NPOP+6]=f2[(NX+iX_bottom)*NPOP+8];
-        f2[(NX*(NY-1)+iX)*NPOP+4]=f2[(NX*(NY-2)+iX)*NPOP+2];
-        f2[(NX*(NY-1)+iX)*NPOP+7]=f2[(NX*(NY-2)+iX_bottom)*NPOP+5];
-        f2[(NX*(NY-1)+iX)*NPOP+8]=f2[(NX*(NY-2)+iX_top)*NPOP+6];        
-    }
     //Perform velocity bounce back on the inlet
-    for(int iY=1;iY<NY-1;iY++)
+    for(int iY=0;iY<NY;iY++)
     {
     	//f2[iY*NX*NPOP+1]=f2[(iY*NX+1)*NPOP+3]+2.0*weights[1]*3.0*(ux[iY*NX]*cx[1]);
         //f2[iY*NX*NPOP+5]=f2[((iY-1)*NX+1)*NPOP+7]+2.0*weights[5]*3.0*(ux[iY*NX]*cx[5]); 
     	//f2[iY*NX*NPOP+8]=f2[((iY+1)*NX+1)*NPOP+6]+2.0*weights[8]*3.0*(ux[iY*NX]*cx[8]);
     	
-    	//Test
+    	//On node boundary condition
     	f2[iY*NX*NPOP+1]=f2[(iY*NX+1)*NPOP+3]+2.0*weights[1]*3.0*(ux[iY*NX]*cx[1]);
     	f2[iY*NX*NPOP+5]=f2[(iY*NX+1)*NPOP+7]+2.0*weights[5]*3.0*(ux[iY*NX]*cx[5]);
     	f2[iY*NX*NPOP+8]=f2[(iY*NX+1)*NPOP+6]+2.0*weights[8]*3.0*(ux[iY*NX]*cx[8]);
     }
     //Perform copying populations on the outlet
-    for(int iY=1;iY<NY-1;iY++)
+    for(int iY=0;iY<NY;iY++)
     	for (int iPop=0;iPop<NPOP;iPop++)
     		f2[(iY*NX+NX-1)*NPOP+iPop]=f2[(iY*NX+NX-2)*NPOP+iPop];
 }
@@ -506,7 +482,7 @@ void stream()
 		int iX=counter%NX;
 		int iY=counter/NX;
 
-        if ((iY==0) || (iY==NY-1) || (iX==0) || (iX==NX-1))
+        if ((iX==0) || (iX==NX-1) )
             continue;
 		for(int iPop=0;iPop<NPOP;iPop++)
 		{
@@ -531,8 +507,9 @@ void calculate_overall_force(std::string filename)
     double aver_deformation = 0.0;
     double len = 2.0*M_PI*radius/double(NUMIB);
     double represent_vel = ux[NY/2*NX+9*NX/10];
-    double re = 2.0/3.0*represent_vel*2.0*radius/((1.0/omega-0.5)/3.0);
-    double re_theor=2.0/3.0*vel_center*2.0*radius/((1.0/omega-0.5)/3.0);
+    double re = represent_vel*2.0*radius/((1.0/omega-0.5)/3.0);
+    double re_theor=vel_center*2.0*radius/((1.0/omega-0.5)/3.0);
+    std::cout << "***** New signal time *****" << std::endl;
     std::cout << "Len: " << len << std::endl;
     std::cout << "Re: " << re << " " << "Re(theor): " << re_theor << std::endl;
     std::cout << "Represent vel: " << represent_vel << std::endl;
@@ -547,14 +524,13 @@ void calculate_overall_force(std::string filename)
         aver_deformation += sqrt((points[n].x-points[n].x_ref)*(points[n].x-points[n].x_ref)+
                             (points[n].y-points[n].y_ref)*(points[n].y-points[n].y_ref));
     }
-    force_tot_x = force_tot_x * len;
-    force_tot_y = force_tot_y * len;
+    
     aver_deformation = aver_deformation/NUMIB;
     
-    double drag_theor = -force_tot_x/(4.0/9.0*vel_center*vel_center*radius);
-    double lift_theor = -force_tot_y/(4.0/9.0*vel_center*vel_center*radius);
-    double drag_sim = -force_tot_x/(4.0/9.0*represent_vel*represent_vel*radius);
-    double lift_sim = -force_tot_y/(4.0/9.0*represent_vel*represent_vel*radius);
+    double drag_theor = -force_tot_x/(vel_center*vel_center*radius);
+    double lift_theor = -force_tot_y/(vel_center*vel_center*radius);
+    double drag_sim = -force_tot_x/(represent_vel*represent_vel*radius);
+    double lift_sim = -force_tot_y/(represent_vel*represent_vel*radius);
     
     std::cout << "Drag force (theoretical): " << drag_theor  << "\n"; 
     std::cout << "Lift force (theoretical): " << lift_theor << "\n";
@@ -562,8 +538,7 @@ void calculate_overall_force(std::string filename)
     std::cout << "Lift force (simulation): " << lift_sim << "\n";
     fout << std::fixed;
     fout << drag_theor     << " " << lift_theor     << " " 
-         << drag_sim       << " " << lift_sim       << " "  
-         << drag_theor/len << " " << lift_theor/len << std::endl;   
+         << drag_sim       << " " << lift_sim       << std::endl;   
    
     std::cout << "Vel center X: " << vel_center_x << "\n";
     std::cout << "Vel center Y: " << vel_center_y << "\n";
