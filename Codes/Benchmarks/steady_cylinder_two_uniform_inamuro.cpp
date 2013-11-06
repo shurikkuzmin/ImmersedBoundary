@@ -444,6 +444,17 @@ void collide_bulk()
 
 }
 
+void update_bounce_back()
+{
+	for(int iY=0; iY<NY; iY++)
+    	for(int iPop=0; iPop<NPOP; iPop++)
+    	{
+    		int offset1 = (iY*NX+NX-1)*NPOP;
+    		int offset2 = (iY*NX+NX-2)*NPOP;
+    		f2[offset1+iPop]=f2[offset2+iPop];
+    	}
+}
+
 void update_inamuro()
 {
     //Perform velocity bounce back on the inlet
@@ -459,17 +470,16 @@ void update_inamuro()
     	f[offset+5]=weights[5]*rho_prime*(1.0+3.0*vel_center+3.0*vel_center*vel_center);
     	f[offset+8]=weights[8]*rho_prime*(1.0+3.0*vel_center+3.0*vel_center*vel_center);
 
-    	rho_wall  = 1.0/(1.0-vel_center)*(f[offset+0]+f[offset+2]+f[offset+4]+
-                    2.0*(f[offset+1]+f[offset+5]+f[offset+8]));
-        rho_prime = 6.0/(1.0+3.0*vel_center+3.0*vel_center*vel_center)*
-                    (rho_wall*vel_center+(f[offset+1]+f[offset+5]+f[offset+8]));
+    	//rho_wall  = 1.0/(1.0-vel_center)*(f[offset+0]+f[offset+2]+f[offset+4]+
+        //            2.0*(f[offset+1]+f[offset+5]+f[offset+8]));
+        //rho_prime = 6.0/(1.0+3.0*vel_center+3.0*vel_center*vel_center)*
+        //            (rho_wall*vel_center+(f[offset+1]+f[offset+5]+f[offset+8]));
     	
-    	f[offset+3]=weights[3]*rho_prime*(1.0+3.0*vel_center+3.0*vel_center*vel_center);
-    	f[offset+6]=weights[6]*rho_prime*(1.0+3.0*vel_center+3.0*vel_center*vel_center);
-    	f[offset+7]=weights[7]*rho_prime*(1.0+3.0*vel_center+3.0*vel_center*vel_center);
-    	
+    	//f[offset+3]=weights[3]*rho_prime*(1.0+3.0*vel_center+3.0*vel_center*vel_center);
+    	//f[offset+6]=weights[6]*rho_prime*(1.0+3.0*vel_center+3.0*vel_center*vel_center);
+    	//f[offset+7]=weights[7]*rho_prime*(1.0+3.0*vel_center+3.0*vel_center*vel_center);
     }
-
+    
 }
 
 void finish_simulation()
@@ -570,6 +580,7 @@ int main(int argc, char* argv[])
 		compute_particle_forces();
 		spread_particle_forces();
         collide_bulk();
+        update_bounce_back();
 		stream();
 		update_inamuro();
 		interpolate_particle_velocities();
