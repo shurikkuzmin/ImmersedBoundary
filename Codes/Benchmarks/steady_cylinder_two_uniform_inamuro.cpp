@@ -7,8 +7,8 @@
 int NX,NY,NUM;
 
 //Time steps
-int N=10000;
-int NOUTPUT=500;
+int N=100000;
+int NOUTPUT=1000;
 int NSIGNAL=500;
 
 //Other constants
