@@ -20,7 +20,7 @@ double force_x=0.0;
 double force_y=0.0;
 
 //BGK relaxation parameter
-double vel_center=0.01;
+double vel_center=0.05;
 //double omega=1.0/(0.5+vel_center/0.1*(1.1-0.5));
 double omega=1.0;
 
@@ -76,6 +76,8 @@ double torque = 0.0;
 double angle = 0.0;
 double force_tot_x = 0.0;
 double force_tot_y = 0.0;
+double vel_center_x = 0.0;
+double vel_center_y = 0.0;
 
 //Global stiffness
 double stiffness=0.1;
@@ -416,19 +418,18 @@ void interpolate_particle_velocities()
 
 void update_particle_position() 
 {
-  //Reset center position
-  //center_x = 0.0;
-  //center_y = 0.0;
-
   //Update node and center positions  
   for(int n = 0; n < NUMIB; n++) {
     points[n].x = fmod(points[n].x + points[n].vel_x + double(NX),double(NX));
     points[n].y = points[n].y + points[n].vel_y;
-    //center_x += points[n].x / NUMIB;
-    //center_y += points[n].y / NUMIB;
   }
   
-  angle = angle + 2.0*torque/(radius*radius);
+  vel_center_x -= force_tot_x/(M_PI*radius*radius);
+  vel_center_y -= force_tot_y/(M_PI*radius*radius);
+  center_x += vel_center_x;
+  center_y += vel_center_y;
+  
+  angle = angle + 2.0*torque/(M_PI*radius*radius*radius*radius);
   std::cout << "Center_x: " << center_x << std::endl;
   std::cout << "Center_y: " << center_y << std::endl;
   std::cout << "Angle: " << angle << std::endl;
