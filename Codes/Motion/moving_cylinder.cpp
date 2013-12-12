@@ -7,9 +7,9 @@
 int NX,NY,NUM;
 
 //Time steps
-int N=1000;
-int NOUTPUT=1000;
-int NSIGNAL=1000;
+int N=100;
+int NOUTPUT=1;
+int NSIGNAL=1;
 
 //Other constants
 const int NPOP=9;
@@ -20,9 +20,9 @@ double force_x=0.0;
 double force_y=0.0;
 
 //BGK relaxation parameter
-double vel_center=0.05;
-double omega=1.0/(0.5+vel_center/0.1*(1.1-0.5));
-
+double vel_center=0.01;
+//double omega=1.0/(0.5+vel_center/0.1*(1.1-0.5));
+double omega=1.0;
 
 //Fields and populations
 double *f;
@@ -52,7 +52,6 @@ struct node_struct {
    vel_y = 0;
    force_x = 0;
    force_y = 0;
-   torque = 0;
   }
 
   /// Elements
@@ -65,18 +64,21 @@ struct node_struct {
   double vel_y; // node velocity (y-component)
   double force_x; // node force (x-component)
   double force_y; // node force (y-component)
-  double torque;
 };
 
 //IB particle values
 int NUMIB;
 node_struct* points;
-double radius   = 20.0;
-double center_x = 800.0;
-double center_y = 200.0;
+double radius   = 30.0;
+double center_x = 120.0;
+double center_y = 120.0;
+double torque = 0.0;
+double angle = 0.0;
+double force_tot_x = 0.0;
+double force_tot_y = 0.0;
 
 //Global stiffness
-double stiffness=0.05;
+double stiffness=0.1;
 
 void writedensity(std::string const & fname)
 {
@@ -188,13 +190,43 @@ void writevtk(std::string const & fname)
     	fout_imm << n << " ";
   
     fout_imm.close();
+    
+    std::string filename_ref=fname+"_ref.vtk";
+    std::ofstream fout_ref(filename_ref.c_str());		
+    //Immersed boundary datasets
+    fout_ref << "# vtk DataFile Version 3.0 \n";
+    fout_ref << "Immersed boundary representation\n";
+    fout_ref << "ASCII\n\n";
+    fout_ref << "DATASET POLYDATA\n";
+  	fout_ref << "POINTS " << NUMIB << " double\n";
+
+  	for(int n = 0; n < NUMIB; n++) 
+    	fout_ref << points[n].x_ref << " " << points[n].y_ref << " 0\n";
+  	
+
+  	//Write lines between neighboring nodes
+  	fout_ref << "LINES " << NUMIB << " " << 3 * NUMIB << "\n";
+
+  	for(int n = 0; n < NUMIB; n++) 
+    	fout_ref << "2 " << n << " " << (n + 1) % NUMIB << "\n";
+
+	//Write vertices
+
+  	fout_ref << "VERTICES 1 " << NUMIB + 1 << "\n";
+  	fout_ref << NUMIB << " ";
+
+  	for(int n = 0; n < NUMIB; n++) 
+    	fout_ref << n << " ";
+  
+    fout_ref.close();
+
         
 }
 
 void init_hydro()
 {
-    NY=402;
-    NX=2001;
+    NY=248;
+    NX=1321;
     NUM=NX*NY;
     rho=new double[NUM];
     ux=new double[NUM];
@@ -217,7 +249,7 @@ void init_hydro()
 void init_immersed()
 {
 	//Number of immersed boundary points. We take it as perimeter with 
-	NUMIB = 160;
+	NUMIB = 240;
 	points = new node_struct[NUMIB];	
 
     for(int n = 0; n < NUMIB; ++n) {
@@ -274,14 +306,17 @@ void compute_particle_forces()
   }
   
   torque = 0.0;
+  force_tot_x = 0.0;
+  force_tot_y = 0.0;
   for(int n = 0; n < NUMIB; n++)
   {
   	double fx = points[n].force_x;
   	double fy = points[n].force_y;
   	double rx = points[n].x - center_x;
   	double ry = points[n].y - center_y;
-  	points[n].torque = fx*ry - fx*dy;
-  	torque += points[n].torque;
+  	torque += fx*ry - fy*rx;
+  	force_tot_x += fx;
+  	force_tot_y += fy;
   }
   
 }
@@ -382,27 +417,35 @@ void interpolate_particle_velocities()
 void update_particle_position() 
 {
   //Reset center position
-  particle.center.x = 0.0;
-  particle.center.y = 0.0;
-  //Update node and center positions
-  
+  //center_x = 0.0;
+  //center_y = 0.0;
+
+  //Update node and center positions  
   for(int n = 0; n < NUMIB; n++) {
     points[n].x = fmod(points[n].x + points[n].vel_x + double(NX),double(NX));
     points[n].y = points[n].y + points[n].vel_y;
-    particle.center.x += particle.node[n].x / particle.num_nodes;
-    particle.center.y += particle.node[n].y / particle.num_nodes;
+    //center_x += points[n].x / NUMIB;
+    //center_y += points[n].y / NUMIB;
   }
+  
+  angle = angle + 2.0*torque/(radius*radius);
+  std::cout << "Center_x: " << center_x << std::endl;
+  std::cout << "Center_y: " << center_y << std::endl;
+  std::cout << "Angle: " << angle << std::endl;
+  std::cout << "Cos: " << cos(angle) << std::endl;
+  std::cout << "Sin: " << sin(angle) << std::endl;
+  std::cout << "Delta X: " << radius * cos(angle) << std::endl;
+  std::cout << "Delta Y: " << radius * sin(angle) << std::endl;
 
-  particle.angle = particle.angle + ;
-  center_x = particle.center.x;
-  center_y = particle.center.y;
   for(int n = 0; n < NUMIB; ++n) 
   {
   	double x_ref = radius * cos(2.0 * M_PI * double(n) / double(NUMIB));
   	double y_ref = radius * sin(2.0 * M_PI * double(n) / double(NUMIB));
-    points[n].x_ref = center_x + x_ref*cos(particle.angle) - y_ref*sin(particle.angle);
-    points[n].y_ref = center_y + x_ref*sin(particle.angle) + y_ref*cos(particle.angle);
+    points[n].x_ref = center_x + x_ref*cos(angle) - y_ref*sin(angle);
+    points[n].y_ref = center_y + x_ref*sin(angle) + y_ref*cos(angle);
   }
+
+
 
   return;
 }
@@ -518,10 +561,6 @@ void calculate_overall_force(std::string filename)
 {
 	std::ofstream fout(filename.c_str(),std::ios_base::app);
 
-    double force_tot_x = 0.0;
-    double force_tot_y = 0.0;
-    double vel_center_x = 0.0;
-    double vel_center_y = 0.0;
     double aver_deformation = 0.0;
     double len = 2.0*M_PI*radius/double(NUMIB);
     double represent_vel = ux[NY/2*NX+9*NX/10];
@@ -531,14 +570,15 @@ void calculate_overall_force(std::string filename)
     std::cout << "Len: " << len << std::endl;
     std::cout << "Re: " << re << " " << "Re(theor): " << re_theor << std::endl;
     std::cout << "Represent vel: " << represent_vel << std::endl;
-  
+    std::cout << "Torque: " << torque << std::endl;
+    std::cout << "Angle: " << angle << std::endl;
+  	std::cout << "Center_x: " << center_x << std::endl;
+  	std::cout << "Center_y: " << center_y << std::endl;
 
     for(int n = 0; n < NUMIB; n++) 
     { 
         force_tot_x  += points[n].force_x;
         force_tot_y  += points[n].force_y;
-        vel_center_x += points[n].vel_x;
-        vel_center_y += points[n].vel_y;
         aver_deformation += sqrt((points[n].x-points[n].x_ref)*(points[n].x-points[n].x_ref)+
                             (points[n].y-points[n].y_ref)*(points[n].y-points[n].y_ref));
     }
@@ -558,8 +598,6 @@ void calculate_overall_force(std::string filename)
     fout << drag_theor     << " " << lift_theor     << " " 
          << drag_sim       << " " << lift_sim       << std::endl;   
    
-    std::cout << "Vel center X: " << vel_center_x << "\n";
-    std::cout << "Vel center Y: " << vel_center_y << "\n";
     std::cout << "Average deformation: " << aver_deformation << "\n";
 }
 
