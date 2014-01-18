@@ -7,9 +7,9 @@
 int NX,NY,NUM;
 
 //Time steps
-int N=100000;
-int NOUTPUT=500;
-int NSIGNAL=50;
+int N=400000;
+int NOUTPUT=10000;
+int NSIGNAL=200;
 
 //Other constants
 const int NPOP=9;
@@ -268,7 +268,6 @@ void init_hydro()
 void init_immersed()
 {
 	//Number of immersed boundary points. We take it as perimeter with 
-	//NUMIB = 240;
 	NUMIB = 80;
 	points = new node_struct[NUMIB];	
 
@@ -444,8 +443,8 @@ void update_particle_position()
   
   vel_center_x -= force_tot_x/(M_PI*radius*radius);
   vel_center_y -= force_tot_y/(M_PI*radius*radius);
-  center_x += vel_center_x;
-  center_y += vel_center_y;
+  center_x = fmod(center_x + vel_center_x + double(NX),double(NX));
+  center_y = center_y + vel_center_y;
   
   angle = angle + 2.0*torque/(M_PI*radius*radius*radius*radius);
   //std::cout << "Center_x: " << center_x << std::endl;
@@ -460,7 +459,7 @@ void update_particle_position()
   {
   	double x_ref = radius * cos(2.0 * M_PI * double(n) / double(NUMIB));
   	double y_ref = radius * sin(2.0 * M_PI * double(n) / double(NUMIB));
-    points[n].x_ref = center_x + x_ref*cos(angle) - y_ref*sin(angle);
+    points[n].x_ref = fmod(center_x + x_ref*cos(angle) - y_ref*sin(angle) + double(NX),double(NX));
     points[n].y_ref = center_y + x_ref*sin(angle) + y_ref*cos(angle);
   }
 
