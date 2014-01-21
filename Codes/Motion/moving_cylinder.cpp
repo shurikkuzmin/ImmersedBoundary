@@ -7,7 +7,7 @@
 int NX,NY,NUM;
 
 //Time steps
-int N=400000;
+int N=600000;
 int NOUTPUT=10000;
 int NSIGNAL=200;
 
@@ -83,7 +83,7 @@ double vel_center_x = 0.0;
 double vel_center_y = 0.0;
 
 //Global stiffness
-double stiffness=0.03;
+double stiffness=0.01;
 
 void writedensity(std::string const & fname)
 {
