@@ -7,9 +7,9 @@
 int NX,NY,NUM;
 
 //Time steps
-int N=100;
-int NOUTPUT=1;
-int NSIGNAL=1;
+int N=100000;
+int NOUTPUT=1000;
+int NSIGNAL=500;
 
 //Other constants
 const int NPOP=9;
@@ -79,6 +79,7 @@ double center_y = 500.0;
 
 double torque = 0.0;
 double angle = M_PI/4.0;
+double omega_rot =0.0;
 
 double force_tot_x = 0.0;
 double force_tot_y = 0.0;
@@ -86,7 +87,7 @@ double vel_center_x = 0.0;
 double vel_center_y = 0.0;
 
 //Global stiffness
-double stiffness=0.01;
+double stiffness=0.04;
 
 void writedensity(std::string const & fname)
 {
@@ -260,10 +261,12 @@ void init_immersed()
 	points = new node_struct[NUMIB];	
 
     for(int n = 0; n < NUMIB; ++n) {
-        points[n].x = center_x + aradius * cos(angle + 2.0 * M_PI * double(n) / double(NUMIB));
-        points[n].x_ref = center_x + aradius * cos(angle + 2.0 * M_PI * double(n) / double(NUMIB));
-        points[n].y = center_y + bradius * sin(angle + 2.0 * M_PI * double(n) / double(NUMIB));
-        points[n].y_ref = center_y + bradius * sin(angle + 2.0 * M_PI * double(n) / double(NUMIB));
+        double xpoint = aradius * cos(2.0 * M_PI * double(n) / double(NUMIB));
+        double ypoint = bradius * sin(2.0 * M_PI * double(n) / double(NUMIB));
+        points[n].x = center_x + xpoint*cos(angle) + ypoint*sin(angle);
+        points[n].x_ref = points[n].x;
+        points[n].y = center_y - xpoint*sin(angle) + ypoint*cos(angle);
+        points[n].y_ref = points[n].y;
     }
 }
 
@@ -332,7 +335,7 @@ void spread_particle_forces()
 {
   // Reset forces
   
-  for(int iX = 0; iX < NX; iX++) {
+  for(int iX = 1; iX < NX - 1; iX++) {
     for(int iY = 1; iY < NY - 1; iY++) {
       int counter=iY*NX+iX;
       fx[counter] = 0;
@@ -430,12 +433,13 @@ void update_particle_position()
     points[n].y = points[n].y + points[n].vel_y;
   }
   
-  vel_center_x = -force_tot_x/(M_PI*aradius*bradius*(1.0+rho_ratio));
-  vel_center_y = -force_tot_y/(M_PI*aradius*bradius*(1.0+rho_ratio)) + (1.0 - 1.0/rho_ratio)*force_y;
+  vel_center_x = vel_center_x - force_tot_x/(M_PI*aradius*bradius*rho_ratio);
+  vel_center_y = vel_center_y - force_tot_y/(M_PI*aradius*bradius*rho_ratio) + (1.0 - 1.0/rho_ratio)*force_y;
   center_x = center_x + vel_center_x;
   center_y = center_y + vel_center_y;
   
-  angle = angle + 4.0*torque/(rho_ratio*M_PI*aradius*bradius*(aradius*aradius+bradius*bradius));
+  omega_rot = omega_rot - 4.0*torque/(rho_ratio*M_PI*aradius*bradius*(aradius*aradius+bradius*bradius));
+  angle = angle + omega_rot;
   //std::cout << "Center_x: " << center_x << std::endl;
   //std::cout << "Center_y: " << center_y << std::endl;
   //std::cout << "Angle: " << angle << std::endl;
@@ -446,8 +450,10 @@ void update_particle_position()
 
   for(int n = 0; n < NUMIB; ++n) 
   {
-    points[n].x_ref = center_x + aradius*cos(angle + 2.0 * M_PI * double(n) / double(NUMIB));
-    points[n].y_ref = center_y + bradius*sin(angle + 2.0 * M_PI * double(n) / double(NUMIB));
+    double x = aradius*cos(2.0 * M_PI * double(n) / double(NUMIB));
+    double y = bradius*sin(2.0 * M_PI * double(n) / double(NUMIB));
+    points[n].x_ref = center_x + x*cos(angle) + y*sin(angle);
+    points[n].y_ref = center_y - x*sin(angle) + y*cos(angle);
   }
 
   return;
@@ -474,8 +480,8 @@ void collide_bulk()
 			uy_temp+=f[counter*NPOP+k]*cy[k];
 		}
 		// Here needs to be a reference of forces
-		ux_temp=(ux_temp+0.5*(fx[counter]+force_x))/dense_temp;
-		uy_temp=(uy_temp+0.5*(fy[counter]+force_y))/dense_temp;
+		ux_temp=(ux_temp+0.5*(fx[counter]+0.0*force_x))/dense_temp;
+		uy_temp=(uy_temp+0.5*(fy[counter]+0.0*force_y))/dense_temp;
         	
 		rho[counter]=dense_temp;
 		ux[counter]=ux_temp;
@@ -499,10 +505,10 @@ void collide_bulk()
         for (int k=0;k<NPOP;k++)
         {
 			force[k]=weights[k]*(1.0-0.5*omega)*
-					 (3.0*(fx[counter]+force_x)*cx[k]+3.0*(fy[counter]+force_y)*cy[k]+
-        	         9.0*((cx[k]*cx[k]-1.0/3.0)*(fx[counter]+force_x)*ux_temp+
-        	               cx[k]*cy[k]*((fx[counter]+force_x)*uy_temp+(fy[counter]+force_y)*ux_temp)+
- 						  (cy[k]*cy[k]-1.0/3.0)*(fy[counter]+force_y)*uy_temp));
+					 (3.0*(fx[counter]+0.0*force_x)*cx[k]+3.0*(fy[counter]+0.0*force_y)*cy[k]+
+        	         9.0*((cx[k]*cx[k]-1.0/3.0)*(fx[counter]+0.0*force_x)*ux_temp+
+        	               cx[k]*cy[k]*((fx[counter]+0.0*force_x)*uy_temp+(fy[counter]+0.0*force_y)*ux_temp)+
+ 						  (cy[k]*cy[k]-1.0/3.0)*(fy[counter]+0.0*force_y)*uy_temp));
         }
 		
 		for(int k=0; k < NPOP; k++)
@@ -566,7 +572,7 @@ void stream()
 		int iX=counter%NX;
 		int iY=counter/NX;
 
-        if ((iY==0) || (iY==NY-1) )
+        if ((iY==0) || (iY==NY-1) || (iX==0) || (iX==NX-1) )
             continue;
 		for(int iPop=0;iPop<NPOP;iPop++)
 		{
@@ -584,7 +590,6 @@ void calculate_overall_force(std::string filename,int counter)
 {
 	std::ofstream fout(filename.c_str(),std::ios_base::app);
 
-    double aver_deformation = 0.0;
     double len = 2.0*M_PI*sqrt(0.5*(aradius*aradius+bradius*bradius))/double(NUMIB);
     double represent_vel=0.03;
     double re_theor = represent_vel*(NX/4.0)/((1.0/omega-0.5)/3.0);
@@ -600,6 +605,7 @@ void calculate_overall_force(std::string filename,int counter)
   	std::cout << "Vel_center_x: " << vel_center_x << std::endl;
   	std::cout << "Vel_center_y: " << vel_center_y << std::endl;
 
+    double aver_deformation = 0.0;    
     for(int n = 0; n < NUMIB; n++) 
     { 
         force_tot_x  += points[n].force_x;
