@@ -3,6 +3,7 @@
 #include <sstream>
 #include <cmath>
 #include <cstdio>
+#include <set>
 
 //Domain size
 int NX,NY,NUM;
@@ -71,7 +72,8 @@ struct node_struct {
 struct particle_struct {
     particle_struct() {
         num_nodes = 0;
-        radius = 0.0;
+        aradius = 0.0;
+        bradius = 0.0;
         center_x = 0.0;
         center_y = 0.0;
         
@@ -99,7 +101,7 @@ struct particle_struct {
     }
     
     int num_nodes;
-    double radius, center_x, center_y, vel_center_x, vel_center_y;
+    double aradius, bradius, center_x, center_y, vel_center_x, vel_center_y;
     double angle,torque,omega_rot;
     double force_tot_x, force_tot_y;
 
@@ -108,7 +110,10 @@ struct particle_struct {
     
     double rho_ratio;
     
-    bool is_moving;       
+    bool is_moving;  
+    
+    // Account for collisions
+    std::set<int> collisions; 
 };
 
 particle_struct* particles;
@@ -182,7 +187,7 @@ void writevtk(std::string const & fname)
     {
     	int iX=counter%NX;
     	int iY=counter/NX;
-        fout<<iX<<" "<<iY-0.5<<" "<<0<<"\n";
+        fout<<iX<<" "<<iY<<" "<<0<<"\n";
     }
     fout<<"\n";
     fout<<"POINT_DATA "<<NX*NY*1<<"\n";
@@ -214,25 +219,9 @@ void writevtk(std::string const & fname)
 
     for (int iPart = 0; iPart < num_particles; iPart++)
   	    for(int n = 0; n < particles[iPart].num_nodes; n++) 
-    	    fout_imm << particles[iPart].points[n].x << " " << particles[iPart].points[n].y << " 0\n";
-  	
-
-  	//Write lines between neighboring nodes
-  	fout_imm << "LINES " << num_overall << " " << 3 * num_overall << "\n";
-    
-    int num_curr = 0;
-    for (int iPart = 0; iPart < num_particles; iPart++)
-    {
-        int num_curr_beg = num_curr;
-  	    for(int n = 0; n < particles[iPart].num_nodes - 1; n++)
-  	    {    
-    	    fout_imm << "2 " << num_curr << " " << num_curr + 1 << "\n";
-    	    num_curr++;
-        }
-        fout_imm << "2 " << num_curr << " " << num_curr_beg << "\n";
-        num_curr++;
-     }   
-	
+    	    fout_imm << fmod(fmod(particles[iPart].points[n].x,NX)+NX,NX) << " " 
+    	             << fmod(fmod(particles[iPart].points[n].y,NY)+NY,NY) << " 0\n";
+  		
 	//Write vertices
   	fout_imm << "VERTICES 1 " << num_overall + 1 << "\n";
   	fout_imm << num_overall <<" ";
@@ -253,25 +242,9 @@ void writevtk(std::string const & fname)
 
     for (int iPart = 0; iPart < num_particles; iPart++)
   	    for(int n = 0; n < particles[iPart].num_nodes; n++) 
-    	    fout_ref << particles[iPart].points[n].x_ref << " " << particles[iPart].points[n].y_ref << " 0\n";
-  	
-
-  	//Write lines between neighboring nodes
-  	fout_ref << "LINES " << num_overall << " " << 3 * num_overall << "\n";
-    
-    num_curr = 0;
-    for (int iPart = 0; iPart < num_particles; iPart++)
-    {
-        int num_curr_beg = num_curr;
-  	    for(int n = 0; n < particles[iPart].num_nodes - 1; n++)
-  	    {    
-    	    fout_ref << "2 " << num_curr << " " << num_curr + 1 << "\n";
-    	    num_curr++;
-        }
-        fout_ref << "2 " << num_curr << " " << num_curr_beg << "\n";
-        num_curr++;
-     }   
-	
+    	    fout_ref << fmod(fmod(particles[iPart].points[n].x_ref,NX)+NX,NX) << " " 
+    	             << fmod(fmod(particles[iPart].points[n].y_ref,NY)+NY,NY) << " 0\n";
+  		
 	//Write vertices
   	fout_ref << "VERTICES 1 " << num_overall + 1 << "\n";
   	fout_ref << num_overall <<" ";
@@ -285,7 +258,7 @@ void writevtk(std::string const & fname)
 
 void init_hydro()
 {
-    NY = 82;
+    NY = 122;
     NX = 400;
     NUM=NX*NY;
     rho=new double[NUM];
@@ -313,9 +286,11 @@ void init_hydro()
 	    {
 	        double cx = particles[iPart].center_x;
 	        double cy = particles[iPart].center_y;
-	        double rad = particles[iPart].radius;
+	        double arad = particles[iPart].aradius;
+	        double brad = particles[iPart].bradius;
+	        
 	        	
-		    if ((iY-cy)*(iY-cy)+(iX-cx)*(iX-cx) <= rad*rad)
+		    if ((iY-cy)*(iY-cy)/(brad*brad)+(iX-cx)*(iX-cx)/(arad*arad) <= 1)
 		    {
 			    ux[counter]=0.0;
 			    uy[counter]=0.0;
@@ -327,18 +302,27 @@ void init_hydro()
 void init_immersed()
 {
     // Here we initialize all the particles
-    num_particles = 2; 
+    num_particles = 3; 
     particles = new particle_struct[num_particles];
 	
-    particles[0].radius = 20;
+    particles[0].aradius = 15;
+    particles[0].bradius = 20;
     particles[0].center_x = 50;
     particles[0].center_y = 30;
     particles[0].is_moving = true;
     
-    particles[1].radius = 20;
+    particles[1].aradius = 20;
+    particles[1].bradius = 20;
     particles[1].center_x = 200;
     particles[1].center_y = 40;
-    particles[1].is_moving = false;    
+    particles[1].is_moving = false; 
+    
+    particles[2].aradius = 20;
+    particles[2].bradius = 30;
+    particles[2].center_x = 80;
+    particles[2].center_y = 85;
+    particles[2].is_moving = true; 
+       
     
     for(int iPart = 0; iPart < num_particles; iPart++)
     {
@@ -348,13 +332,17 @@ void init_immersed()
         
         double cx = particles[iPart].center_x;
         double cy = particles[iPart].center_y;
-        double rad = particles[iPart].radius;
+        double arad = particles[iPart].aradius;
+        double brad = particles[iPart].bradius;
+        double angle = particles[iPart].angle;
         for(int n = 0; n < num; ++n) 
         {
-            particles[iPart].points[n].x = cx + rad * cos(2.0 * M_PI * double(n) / double(num));
-            particles[iPart].points[n].x_ref = cx + rad * cos(2.0 * M_PI * double(n) / double(num));
-            particles[iPart].points[n].y = cy + rad * sin(2.0 * M_PI * double(n) / double(num));
-            particles[iPart].points[n].y_ref = cy + rad * sin(2.0 * M_PI * double(n) / double(num));
+            double xpoint = arad * cos(2.0 * M_PI * double(n) / double(num));
+            double ypoint = brad * sin(2.0 * M_PI * double(n) / double(num));
+            particles[iPart].points[n].x = cx + xpoint*cos(angle) + ypoint*sin(angle);
+            particles[iPart].points[n].x_ref = particles[iPart].points[n].x;
+            particles[iPart].points[n].y = cy - xpoint*sin(angle) + ypoint*cos(angle) ;
+            particles[iPart].points[n].y_ref = particles[iPart].points[n].y;
         }
     }
    
@@ -403,7 +391,10 @@ void compute_particle_forces()
             particles[iPart].points[n].force_y = 0.0;
         }
         //Compute rigid forces
-        double area = 2.0 * M_PI * particles[iPart].radius / num; 
+        double arad = particles[iPart].aradius;
+        double brad = particles[iPart].bradius;
+        
+        double area = 2.0 * M_PI * sqrt(0.5*(arad*arad+brad*brad)) / num; 
         for(int n = 0; n < num; n++) 
         {
   	        // Don't understand why we need area?
@@ -561,7 +552,8 @@ void update_particle_position()
     
         //Update node and center positions  
         int num = particles[iPart].num_nodes;
-        double rad = particles[iPart].radius;
+        double arad = particles[iPart].aradius;
+        double brad = particles[iPart].bradius;
         double ratio = particles[iPart].rho_ratio;
         double torque = particles[iPart].torque;
         
@@ -580,9 +572,9 @@ void update_particle_position()
         if (particles[iPart].is_moving)
         {
             particles[iPart].vel_center_x = particles[iPart].vel_center_x 
-                                          - particles[iPart].force_tot_x/(M_PI*rad*rad*ratio);
+                                          - particles[iPart].force_tot_x/(M_PI*arad*brad*ratio);
             particles[iPart].vel_center_y = particles[iPart].vel_center_y 
-                                          - particles[iPart].force_tot_y/(M_PI*rad*rad*ratio);
+                                          - particles[iPart].force_tot_y/(M_PI*arad*brad*ratio);
                                       
             particles[iPart].center_x = particles[iPart].center_x 
                                       + particles[iPart].vel_center_x;
@@ -590,13 +582,13 @@ void update_particle_position()
                                       + particles[iPart].vel_center_y;
   
             particles[iPart].omega_rot = particles[iPart].omega_rot 
-                                       - 2.0*torque/(ratio*M_PI*rad*rad*rad*rad);
+                                       - 4.0*torque/(ratio*M_PI*arad*brad*(arad*arad+brad*brad));
             particles[iPart].angle = particles[iPart].angle + particles[iPart].omega_rot;
 
             for(int n = 0; n < num; ++n) 
             {
-                double x = rad*cos(2.0 * M_PI * double(n) / double(num));
-                double y = rad*sin(2.0 * M_PI * double(n) / double(num));
+                double x = arad*cos(2.0 * M_PI * double(n) / double(num));
+                double y = brad*sin(2.0 * M_PI * double(n) / double(num));
                 double angle = particles[iPart].angle;
                 particles[iPart].points[n].x_ref = particles[iPart].center_x + x*cos(angle) + y*sin(angle);
                 particles[iPart].points[n].y_ref = particles[iPart].center_y - x*sin(angle) + y*cos(angle);
@@ -607,6 +599,123 @@ void update_particle_position()
 
     return;
 }
+
+void calculate_collisions(int counter)
+{
+    // Calculate the number of collisions
+    if (num_particles == 1) return;
+    for (int iPart = 0; iPart < num_particles - 1; iPart++)
+    {
+        double cx1 = particles[iPart].center_x;
+        double cy1 = particles[iPart].center_y;
+        
+        double arad1 = particles[iPart].aradius;
+        double brad1 = particles[iPart].bradius;
+        
+        double angle1 = particles[iPart].angle;
+
+        for (int jPart = iPart+1; jPart < num_particles; jPart++) 
+        {
+            // Find a line connecting both centers
+            double cx2 = particles[jPart].center_x;
+            double cy2 = particles[jPart].center_y;
+            
+            double arad2 = particles[jPart].aradius;
+            double brad2 = particles[jPart].bradius;
+            double angle2 = particles[jPart].angle;
+            
+            //double a = -(cyj-cyi);
+            //double b = cxj-cxi;
+            //double c = cyj*cxi-cyi*cxj;
+            //double norm = sqrt(a*a+b*b);
+            
+            double dist = sqrt((cy2-cy1)*(cy2-cy1)+(cx2-cx1)*(cx2-cx1));
+            
+            // Find an angle which has maximum projection to the line connecting centers
+            double phi1 = 0.0;
+            double phi1exp = atan2(-brad1*((cy2-cy1)*cos(angle1)+(cx2-cx1)*sin(angle1)),
+                                    arad1*((cy2-cy1)*sin(angle1)-(cx2-cx1)*cos(angle1)));
+            double maxdot1 = 0.0;
+            for (int n=0; n<particles[iPart].num_nodes; ++n)
+            {
+                double xref = particles[iPart].points[n].x_ref - cx1;
+                double yref = particles[iPart].points[n].y_ref - cy1;
+                double rad = sqrt(xref*xref+yref*yref);
+                double dot = (xref*(cx2-cx1)+yref*(cy2-cy1));
+                double cosangle = dot/(dist*rad);
+                if( (dot >= 0) && maxdot1 < dot)
+                {
+                    maxdot1 = dot;
+                    phi1 = acos(cosangle);
+                }
+            }
+                                 
+                                 
+            double x1 =  arad1*cos(angle1)*cos(phi1) + brad1*sin(angle1)*sin(phi1);
+            double y1 = -arad1*sin(angle1)*cos(phi1) + brad1*cos(angle1)*sin(phi1);
+
+            // Find an angle which has maximum projection to the line connecting centers
+            double phi2 = 0.0;
+            double phi2exp = atan2(-brad2*((cy1-cy2)*cos(angle2)+(cx1-cx2)*sin(angle2)),
+                                    arad2*((cy1-cy2)*sin(angle2)-(cx1-cx2)*cos(angle2)));
+            
+            double maxdot2 = 0.0;
+            for (int n=0; n<particles[jPart].num_nodes; ++n)
+            {
+                double xref = particles[jPart].points[n].x_ref - cx2;
+                double yref = particles[jPart].points[n].y_ref - cy2;
+                double rad = sqrt(xref*xref+yref*yref);
+                double dot = (xref*(cx1-cx2)+yref*(cy1-cy2));
+                double cosangle = dot/(dist*rad);
+                if( (dot >= 0) && maxdot1 < dot)
+                {
+                    maxdot2 = dot;
+                    phi2 = acos(cosangle);
+                }
+            }
+                    
+                                 
+            double x2 =  arad2*cos(angle2)*cos(phi2) + brad2*sin(angle2)*sin(phi2);
+            double y2 = -arad2*sin(angle2)*cos(phi2) + brad2*cos(angle2)*sin(phi2);
+                    
+            
+            // Find a projection of x,y to the line
+            double dot1 = x1*(cx2-cx1) + y1*(cy2-cy1);
+            double dot2 = x2*(cx1-cx2) + y2*(cy1-cy2);
+            
+            // Find a new point 
+            double distnew1 = abs(dot1)/dist;
+            double distnew2 = abs(dot2)/dist;
+            double xnew1 = cx1 + distnew1 * (cx2-cx1)/dist;
+            double ynew1 = cy1 + distnew1 * (cy2-cy1)/dist;
+            double xnew2 = cx2 + distnew2 * (cx1-cx2)/dist;
+            double ynew2 = cy2 + distnew2 * (cy1-cy2)/dist;
+            
+            if (distnew1+distnew2 >= dist - 2)
+            {
+                //std::cout << "Collision happens at time " << counter << std::endl;
+                //std::cout << "Particles i,j: " << iPart << " " << jPart << std::endl;
+                //std::cout << "Center i: " << cx1 << " " << cy1 << std::endl
+                //          << "Center j: " << cx2 << " " << cy2 << std::endl;
+                      
+                //std::cout << "Closest point 1: " << xnew1 << " " << ynew1 << std::endl;
+                //std::cout << "Closest point 2: " << xnew2 << " " << ynew2 << std::endl; 
+ 
+                //std::cout << "Distance between centers " << dist << std::endl;
+                //std::cout << "Dist1: " << distnew1 << " dist2: " <<distnew2 << std::endl;
+                //std::cout << "Phi1: " << phi1 << " phi1exp: " << phi1exp << std::endl;
+                //std::cout << "Phi2: " << phi2 << " phi2exp: " << phi2exp << std::endl;
+                //std::cout << "Angle1: " << angle1 << " angle2: " << angle2 << std::endl;
+                
+                // Insert into the dataset
+                particles[iPart].collisions.insert(jPart);
+                particles[jPart].collisions.insert(iPart);
+            }
+        }  
+    }
+
+}
+
 
 void collide_bulk()
 {
@@ -779,9 +888,10 @@ void calculate_overall_force(std::string filename,int counter)
     for (int iPart = 0; iPart < num_particles; iPart++)
     {
         std::cout << "Particle: "  << iPart << std::endl;
-        double rad = particles[iPart].radius;
+        double arad = particles[iPart].aradius;
+        double brad = particles[iPart].bradius;
         int num = particles[iPart].num_nodes;
-        double len = 2.0*M_PI*rad/double(num);
+        double len = 2.0*M_PI*sqrt(0.5*(arad*arad+brad*brad))/double(num);
         std::cout << "Torque: " << particles[iPart].torque << std::endl;
         std::cout << "Angle: " << particles[iPart].angle << std::endl;
   	    std::cout << "Center_x: " << particles[iPart].center_x << std::endl;
@@ -804,7 +914,21 @@ void calculate_overall_force(std::string filename,int counter)
         std::cout << "Average deformation: " << aver_deformation << std::endl;
 
     }
-    
+        
+}
+
+void print_collisions()
+{
+    for(int iPart = 0; iPart < num_particles; iPart++)
+    {
+        if(particles[iPart].collisions.size() != 0)
+        {
+            std::set<int>::iterator it;
+            for (it = particles[iPart].collisions.begin(); it != particles[iPart].collisions.end(); ++it)
+                std::cout << "Particle " << iPart << " had collision with the particle " 
+                          << *it << std::endl;
+        }
+    }
 }
 
 int main(int argc, char* argv[])
@@ -822,6 +946,7 @@ int main(int argc, char* argv[])
 		stream();
 		interpolate_particle_velocities();
 		update_particle_position();
+		calculate_collisions(counter);
         
 	    if (counter%NSIGNAL==0)
 	    {
@@ -859,6 +984,8 @@ int main(int argc, char* argv[])
 		}
 
 	}
+    
+    print_collisions();
     
    	return 0;
 }
