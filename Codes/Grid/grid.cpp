@@ -326,6 +326,7 @@ void init_immersed()
     
     for(int iPart = 0; iPart < num_particles; iPart++)
     {
+        // Perimeter pi*(arad+brad)/0.7 = num_nodes
         particles[iPart].num_nodes = 150;
         int num = particles[iPart].num_nodes;        
         particles[iPart].points = new node_struct[num];
