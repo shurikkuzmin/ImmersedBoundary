@@ -83,6 +83,10 @@ struct particle_struct {
         
         force_tot_x = 0.0;
         force_tot_y = 0.0;
+        
+        force_col_x = 0.0;
+        force_col_y = 0.0;
+        
         vel_center_x = 0.0;
         vel_center_y = 0.0;
         
@@ -103,7 +107,7 @@ struct particle_struct {
     int num_nodes;
     double aradius, bradius, center_x, center_y, vel_center_x, vel_center_y;
     double angle,torque,omega_rot;
-    double force_tot_x, force_tot_y;
+    double force_tot_x, force_tot_y, force_col_x, force_col_y;
 
     double stiffness;
     node_struct* points; 
@@ -113,7 +117,9 @@ struct particle_struct {
     bool is_moving;  
     
     // Account for collisions
-    std::set<int> collisions; 
+    std::set<int> collisions;
+    std::map<int,int> icoor1;
+    std::map<int,int> icoor2; 
 };
 
 particle_struct* particles;
@@ -573,9 +579,9 @@ void update_particle_position()
         if (particles[iPart].is_moving)
         {
             particles[iPart].vel_center_x = particles[iPart].vel_center_x 
-                                          - particles[iPart].force_tot_x/(M_PI*arad*brad*ratio);
+                - (particles[iPart].force_tot_x + particles[iPart].force_col_x)/(M_PI*arad*brad*ratio);
             particles[iPart].vel_center_y = particles[iPart].vel_center_y 
-                                          - particles[iPart].force_tot_y/(M_PI*arad*brad*ratio);
+                - (particles[iPart].force_tot_y + particles[iPart].force_col_y)/(M_PI*arad*brad*ratio);
                                       
             particles[iPart].center_x = particles[iPart].center_x 
                                       + particles[iPart].vel_center_x;
@@ -612,6 +618,7 @@ void calculate_collisions(int counter)
         
         double arad1 = particles[iPart].aradius;
         double brad1 = particles[iPart].bradius;
+        double maxrad1 = fmax(arad1,brad1);
         
         double angle1 = particles[iPart].angle;
 
@@ -623,76 +630,54 @@ void calculate_collisions(int counter)
             
             double arad2 = particles[jPart].aradius;
             double brad2 = particles[jPart].bradius;
-            double angle2 = particles[jPart].angle;
+            double maxrad2 = fmax(arad2,brad2);
             
-            //double a = -(cyj-cyi);
-            //double b = cxj-cxi;
-            //double c = cyj*cxi-cyi*cxj;
-            //double norm = sqrt(a*a+b*b);
+            double angle2 = particles[jPart].angle;
+
             
             double dist = sqrt((cy2-cy1)*(cy2-cy1)+(cx2-cx1)*(cx2-cx1));
             
-            // Find an angle which has maximum projection to the line connecting centers
-            double phi1 = 0.0;
-            double phi1exp = atan2(-brad1*((cy2-cy1)*cos(angle1)+(cx2-cx1)*sin(angle1)),
-                                    arad1*((cy2-cy1)*sin(angle1)-(cx2-cx1)*cos(angle1)));
-            double maxdot1 = 0.0;
+            //std::cout << "Particles: " << iPart << " " << jPart << " Dist: " << dist << std::endl;                    
+            //std::cout << "Maxrad1: " << maxrad1 << " Maxrad2: " << maxrad2 << std::endl;
+            if (dist > maxrad1+maxrad2+3.0)
+                continue;    
+    
+            double mindist;
+            int icoor1;
+            int icoor2;            
+            // It looks like we need to traverse through all the points
             for (int n=0; n<particles[iPart].num_nodes; ++n)
             {
-                double xref = particles[iPart].points[n].x_ref - cx1;
-                double yref = particles[iPart].points[n].y_ref - cy1;
-                double rad = sqrt(xref*xref+yref*yref);
-                double dot = (xref*(cx2-cx1)+yref*(cy2-cy1));
-                double cosangle = dot/(dist*rad);
-                if( (dot >= 0) && maxdot1 < dot)
+                double xref1 = particles[iPart].points[n].x_ref;
+                double yref1 = particles[iPart].points[n].y_ref;
+                if (n==0)
+                    icoor1 = 0;
+                
+                for (int m=0; m<particles[jPart].num_nodes; ++m)
                 {
-                    maxdot1 = dot;
-                    phi1 = acos(cosangle);
+                    double xref2 = particles[jPart].points[m].x_ref;
+                    double yref2 = particles[jPart].points[m].y_ref;
+                    
+                    dist = sqrt((xref2-xref1)*(xref2-xref1) + (yref2-yref1)*(yref2-yref1));
+                    
+                    if (m == 0)
+                    {
+                        mindist = dist;
+                        icoor2=0;
+                    }
+                    if (dist < mindist)
+                    {
+                        mindist = dist;
+                        icoor1 = n;
+                        icoor2 = m;
+                    }
                 }
+                                
             }
                                  
-                                 
-            double x1 =  arad1*cos(angle1)*cos(phi1) + brad1*sin(angle1)*sin(phi1);
-            double y1 = -arad1*sin(angle1)*cos(phi1) + brad1*cos(angle1)*sin(phi1);
-
-            // Find an angle which has maximum projection to the line connecting centers
-            double phi2 = 0.0;
-            double phi2exp = atan2(-brad2*((cy1-cy2)*cos(angle2)+(cx1-cx2)*sin(angle2)),
-                                    arad2*((cy1-cy2)*sin(angle2)-(cx1-cx2)*cos(angle2)));
+            //std::cout << "Particles: " << iPart << " " << jPart << " Mindist: " << mindist << std::endl;                    
             
-            double maxdot2 = 0.0;
-            for (int n=0; n<particles[jPart].num_nodes; ++n)
-            {
-                double xref = particles[jPart].points[n].x_ref - cx2;
-                double yref = particles[jPart].points[n].y_ref - cy2;
-                double rad = sqrt(xref*xref+yref*yref);
-                double dot = (xref*(cx1-cx2)+yref*(cy1-cy2));
-                double cosangle = dot/(dist*rad);
-                if( (dot >= 0) && maxdot1 < dot)
-                {
-                    maxdot2 = dot;
-                    phi2 = acos(cosangle);
-                }
-            }
-                    
-                                 
-            double x2 =  arad2*cos(angle2)*cos(phi2) + brad2*sin(angle2)*sin(phi2);
-            double y2 = -arad2*sin(angle2)*cos(phi2) + brad2*cos(angle2)*sin(phi2);
-                    
-            
-            // Find a projection of x,y to the line
-            double dot1 = x1*(cx2-cx1) + y1*(cy2-cy1);
-            double dot2 = x2*(cx1-cx2) + y2*(cy1-cy2);
-            
-            // Find a new point 
-            double distnew1 = abs(dot1)/dist;
-            double distnew2 = abs(dot2)/dist;
-            double xnew1 = cx1 + distnew1 * (cx2-cx1)/dist;
-            double ynew1 = cy1 + distnew1 * (cy2-cy1)/dist;
-            double xnew2 = cx2 + distnew2 * (cx1-cx2)/dist;
-            double ynew2 = cy2 + distnew2 * (cy1-cy2)/dist;
-            
-            if (distnew1+distnew2 >= dist - 2)
+            if (mindist <= 3.0)
             {
                 //std::cout << "Collision happens at time " << counter << std::endl;
                 //std::cout << "Particles i,j: " << iPart << " " << jPart << std::endl;
@@ -711,6 +696,11 @@ void calculate_collisions(int counter)
                 // Insert into the dataset
                 particles[iPart].collisions.insert(jPart);
                 particles[jPart].collisions.insert(iPart);
+                particles[iPart].icoor1[jPart] = icoor1;
+                particles[iPart].icoor2[jPart] = icoor2;
+                particles[jPart].icoor1[iPart] = icoor1;
+                particles[jPart].icoor2[iPart] = icoor2;
+                
             }
         }  
     }
