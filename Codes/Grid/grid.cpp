@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdio>
 #include <set>
+#include <map>
 
 //Domain size
 int NX,NY,NUM;
@@ -18,6 +19,10 @@ const int NPOP=9;
 
 double force_x=0.0; 
 double force_y=0.0;
+
+//Global radius of collision
+double global_dist_col = 3.0;
+double global_stiff_col = 0.03;
 
 //Initial global velocities for hydrodynamics
 double global_vel_x=0.01;
@@ -609,6 +614,13 @@ void update_particle_position()
 
 void calculate_collisions(int counter)
 {
+    // Nullify all collision force
+    for (int iPart = 0; iPart < num_particles; iPart++)
+    {
+        particles[iPart].force_col_x = 0.0;
+        particles[iPart].force_col_y = 0.0;
+    }
+    
     // Calculate the number of collisions
     if (num_particles == 1) return;
     for (int iPart = 0; iPart < num_particles - 1; iPart++)
@@ -639,7 +651,7 @@ void calculate_collisions(int counter)
             
             //std::cout << "Particles: " << iPart << " " << jPart << " Dist: " << dist << std::endl;                    
             //std::cout << "Maxrad1: " << maxrad1 << " Maxrad2: " << maxrad2 << std::endl;
-            if (dist > maxrad1+maxrad2+3.0)
+            if (dist > maxrad1 + maxrad2 + global_dist_col)
                 continue;    
     
             double mindist;
@@ -675,9 +687,9 @@ void calculate_collisions(int counter)
                                 
             }
                                  
-            //std::cout << "Particles: " << iPart << " " << jPart << " Mindist: " << mindist << std::endl;                    
-            
-            if (mindist <= 3.0)
+            //std::cout << "Particles: " << iPart << " " << jPart << " Mindist: " << mindist << std::endl;               
+                 
+            if (mindist <= global_dist_col)
             {
                 //std::cout << "Collision happens at time " << counter << std::endl;
                 //std::cout << "Particles i,j: " << iPart << " " << jPart << std::endl;
@@ -686,7 +698,25 @@ void calculate_collisions(int counter)
                       
                 //std::cout << "Closest point 1: " << xnew1 << " " << ynew1 << std::endl;
                 //std::cout << "Closest point 2: " << xnew2 << " " << ynew2 << std::endl; 
- 
+                
+                //std::cout << "Minimal distance: " << mindist << std::endl;
+                double x1 = particles[iPart].points[icoor1].x_ref;
+                double y1 = particles[iPart].points[icoor1].y_ref;
+                double x2 = particles[jPart].points[icoor2].x_ref;
+                double y2 = particles[jPart].points[icoor2].y_ref;
+                dist = sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1));
+                double vecx = -(x2-x1)/dist;
+                double vecy = -(y2-y1)/dist;
+                
+                // Add the additional collision force
+                particles[iPart].force_col_x = global_stiff_col*(dist - global_dist_col)*(dist-global_dist_col)*vecx;
+                particles[iPart].force_col_x = global_stiff_col*(dist - global_dist_col)*(dist-global_dist_col)*vecy;
+                particles[jPart].force_col_x =-global_stiff_col*(dist - global_dist_col)*(dist-global_dist_col)*vecx;
+                particles[jPart].force_col_x =-global_stiff_col*(dist - global_dist_col)*(dist-global_dist_col)*vecy;
+                
+                // Add additional forces
+                
+                
                 //std::cout << "Distance between centers " << dist << std::endl;
                 //std::cout << "Dist1: " << distnew1 << " dist2: " <<distnew2 << std::endl;
                 //std::cout << "Phi1: " << phi1 << " phi1exp: " << phi1exp << std::endl;
@@ -936,8 +966,8 @@ int main(int argc, char* argv[])
         update_inamuro();
 		stream();
 		interpolate_particle_velocities();
-		update_particle_position();
 		calculate_collisions(counter);
+		update_particle_position();
         
 	    if (counter%NSIGNAL==0)
 	    {
